@@ -1,0 +1,50 @@
+% runSimulation.m
+% 전체 시뮬레이션 메인 스크립트
+clear; close all; clc;
+
+
+%% 1) 프로젝트 경로 설정 (현재 폴더 및 하위 폴더 포함)
+addpath( genpath( pwd ) );
+
+%% 2) 시뮬레이션 설정 불러오기
+simConfig = buildSimConfig();
+
+% 반복 횟수 (시드 수)
+numRepeats = 50;
+
+% 결과 저장용 변수 초기화
+allLogData = [];
+headers    = [];
+
+%% 3) 메인 루프: 시드 × TTI
+for rep = 1:numRepeats
+    seedId = 100 + rep;
+    % 시나리오 생성 (UE 배치, 채널 등)
+    scenario = generateScenario(simConfig, seedId);
+    % TTI 히스토리 초기화
+    ttiHistory = struct('avgThroughput', {}, 'lastThroughput', {}, 'CCMask', {});
+
+    for tti = 1:simConfig.numTTI
+        fprintf('Running seed %d, TTI %d/%d...\n', seedId, tti, simConfig.numTTI);
+        scenario.TTI = tti;
+        % 한 TTI 수행: CQI→스케줄링→PHY 시뮬 → 로그 생성
+        [~, stateUpdate, logOut] = simulateTTI(scenario, ttiHistory, simConfig, tti);
+        ttiHistory(end+1) = stateUpdate;
+
+        % 헤더 저장 (최초 1회)
+        if isempty(headers)
+            headers = logOut.headers;
+        end
+        % 로그 데이터 누적
+        allLogData = [allLogData; logOut.data];
+    end
+end
+
+%% 4) 결과 파일로 저장
+resultsFile = fullfile(pwd, 'tti_simulation_results.csv');
+writecell([headers; num2cell(allLogData)], resultsFile);
+fprintf('Simulation complete. Results saved to %s\n', resultsFile);
+
+% --- 추가: MATLAB 로그를 .mat 파일로도 저장
+save(fullfile(pwd,'tti_logs_seed101.mat'), 'allLogData', '-v7');
+fprintf('Also saved MATLAB log to tti_logs_seed101.mat\n');

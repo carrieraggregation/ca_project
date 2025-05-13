@@ -1,0 +1,48 @@
+function [maskIdxList, ccMask] = decideCCActivation(pfMetric, prevMask)
+% decideCCActivation  DDQN inference와 PF fallback을 활용한 CC 활성화
+% 입력:
+%   pfMetric – numUE×numCC PF metric 행렬
+%   prevMask – numUE×numCC 이전 TTI CC 마스크
+% 출력:
+%   ccMask   – numUE×numCC 논리 마스크 (True: 활성화)
+
+import py.zmq.Context;
+import py.zmq.REQ;
+
+persistent ctx sock
+if isempty(ctx) || isempty(sock)
+    % ZeroMQ REQ 소켓 초기화
+    ctx  = Context();
+    sock = ctx.socket(REQ);
+    sock.connect('tcp://127.0.0.1:5555');
+end
+
+[numUE, numCC] = size(pfMetric);
+maskIdxList = z
+ccMask = false(numUE, numCC);
+
+for ue = 1:numUE
+    % 요청 페이로드 생성
+    payload = struct();
+    payload.type     = 'infer';
+    payload.pfMetric = double(pfMetric(ue,:));
+    payload.prevMask = double(prevMask(ue,:));
+    jreq = jsonencode(payload);
+
+    try
+        % DDQN 서버로 inference 요청
+        sock.send_string(py.str(jreq));
+        jres = sock.recv_string();
+        resp = jsondecode(char(jres));
+        maskIdx = double(resp.maskIdx);
+        maskIdxList(ue) = maskIdx;
+        % maskIdx를 이진 마스크로 변환
+        binStr = dec2bin(maskIdx, numCC);
+        ccMask(ue,:) = (binStr == '1');
+    catch ME
+        % 오류 시 PF baseline으로 모든 CC 활성화
+        warning('UE %d inference error: %s. Applying PF baseline.', ue, ME.message);
+        ccMask(ue,:) = true(1, numCC);
+    end
+end
+end

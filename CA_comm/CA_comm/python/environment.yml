@@ -1,0 +1,12 @@
+name: ca_project
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - torch
+  - zmq
+  - scikit-learn
