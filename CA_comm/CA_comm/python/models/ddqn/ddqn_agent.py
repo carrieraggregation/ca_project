@@ -106,6 +106,14 @@ def train_ddqn(args):
         print(f"Episode {episode}/{args.episodes} - Reward: {total_reward:.2f} - Epsilon: {epsilon:.3f}")
         rewards_list.append(total_reward)
         epsilons_list.append(epsilon)
+    #colab 추가
+    import pandas as pd
+    df = pd.DataFrame({
+        'reward':  rewards_list,
+        'epsilon': epsilons_list
+    })
+    df.to_csv('train_history.csv', index=False)
+    print("▶ train_history.csv 저장 완료")
 
     # Save trained model
     model_path = os.path.join(script_dir, args.out_model)
